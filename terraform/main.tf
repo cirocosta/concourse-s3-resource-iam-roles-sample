@@ -56,25 +56,30 @@ resource "aws_instance" "main" {
     "${aws_security_group.allow-ssh-and-egress.id}",
   ]
 
+  connection {
+    type = "ssh"
+    user = "ubuntu"
+    private_key = "${file("./keys/key.rsa")}"
+  }
+
   provisioner "file" {
     source      = "./keys/worker-private-key"
-    destination = "/worker-private-key"
+    destination = "/tmp/worker-private-key"
   }
 
   provisioner "file" {
     source      = "./keys/tsa-public-key"
-    destination = "/tsa-public-key"
+    destination = "/tmp/tsa-public-key"
   }
 
   provisioner "file" {
     source      = "./run-worker.sh"
-    destination = "/tsa-public-key"
+    destination = "/tmp/run-worker.sh"
   }
 
   provisioner "remote-exec" {
     script = "./instance-init.sh"
   }
-
 }
 
 output "public-ip" {

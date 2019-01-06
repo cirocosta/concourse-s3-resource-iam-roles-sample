@@ -1,0 +1,104 @@
+resource_types:
+- name: s3
+  type: registry-image
+  check_every: 30s
+  source:
+    repository: cirocosta/s3-resource
+
+resources:
+- name: builder
+  type: registry-image
+  source:
+    repository: concourse/builder
+
+- name: busybox
+  type: registry-image
+  source:
+    repository: busybox
+
+- name: s3-resource-fork
+  check_every: 30s
+  type: git
+  source:
+    uri: https://github.com/cirocosta/s3-resource
+    branch: iam-roles
+
+- name: s3-resource-image
+  type: registry-image
+  source:
+    repository: cirocosta/s3-resource
+    username: cirocosta
+    password: ((docker-password))
+
+# ps.: intersting case for `global` resources
+- name: release-from-aws
+  tags: [ aws ]
+  type: s3
+  source: &release-source
+    bucket: sample-concourse-s3-resource
+    initial_path: binary-1.0.0.tgz
+    regexp: binary-(.*).tgz
+    region_name: us-east-1
+    skip_download: true
+
+- name: release-from-gke
+  type: s3
+  source: *release-source
+
+
+jobs:
+- name: build-resource-type
+  plan:
+  - aggregate:
+    - get: builder
+    - get: s3-resource-fork
+      trigger: true
+  - task: build
+    privileged: true
+    image: builder
+    config:
+      platform: linux
+      params:
+        REPOSITORY: cirocosta/s3-resource
+        CONTEXT: s3-resource-fork
+      inputs:
+      - name: s3-resource-fork
+      outputs:
+      - name: image
+      run:
+        path: build
+  - put: s3-resource-image
+    inputs: [ image ]
+    params:
+      image: image/image.tar
+
+
+- name: release
+  plan:
+  - aggregate:
+    - get: busybox
+    - get: s3-resource-image
+      passed: [ build-resource-type ]
+      trigger: true
+  - task: create-file
+    image: busybox
+    config:
+      platform: linux
+      outputs:
+      - name: releases
+        path: .
+      run:
+        path: /bin/sh
+        args:
+        - -ce
+        - |
+          echo "stuff" > ./binary-1.0.0.tgz
+  - aggregate:
+    - put: release-from-aws
+      tags: [ aws ]
+      params:
+        file: ./releases/binary-*.tgz
+    - try:
+        put: release-from-gke
+        params:
+          file: ./releases/binary-*.tgz

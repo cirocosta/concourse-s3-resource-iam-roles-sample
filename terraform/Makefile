@@ -4,4 +4,4 @@ ssh:
 	ssh -i ./keys/key.rsa ubuntu@$(AWS_IP)
 
 run-worker:
-	ssh -i ./keys/key.rsa ubuntu@$(AWS_IP) /run-worker.sh
+	ssh -i ./keys/key.rsa ubuntu@$(AWS_IP) bash /tmp/run-worker.sh
