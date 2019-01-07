@@ -3,15 +3,18 @@ RUNNING
 	1.	Gather hush-house's worker private key
 		and put it under ./terraform/keys/worker-private-key
 
+
 	2.	Provision the AWS infrastructure
 
 			cd ./terraform && \
 				terraform apply -auto-approve
 
+
 	3.	Run the worker process in it
 
 			cd ./terraform && \
 				make run-worker
+
 
 	4.	Trigger the `release` job
 
